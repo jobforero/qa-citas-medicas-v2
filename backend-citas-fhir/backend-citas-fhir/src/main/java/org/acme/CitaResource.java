@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import org.acme.dto.CitaRequestDTO;
 import org.acme.model.Cita;
+import org.acme.repository.CitaRepository;
 import org.acme.service.FhirMapperService;
 import org.jboss.logging.Logger;
 
@@ -19,12 +20,15 @@ public class CitaResource {
     private static final Logger LOG = Logger.getLogger(CitaResource.class);
 
     @Inject
+    CitaRepository citaRepository;
+
+    @Inject
     FhirMapperService fhirMapperService;
 
     @GET
     public List<Cita> listarTodas() {
         LOG.info("Consultando catálogo completo de citas en MongoDB");
-        return Cita.listAll();
+        return citaRepository.listAll();
     }
 
     @POST
@@ -49,7 +53,9 @@ public class CitaResource {
 
         // Mapeo normalizado HL7 FHIR
         cita.recursoFHIR = fhirMapperService.construirAppointmentFHIR(cita);
-        cita.persist();
+
+        // Persistencia mediante Repositorio
+        citaRepository.persist(cita);
 
         LOG.infof("Cita registrada y mapeada a HL7 FHIR con éxito para: %s", dto.nombrePaciente);
         return Response.status(Response.Status.CREATED).entity(cita).build();
