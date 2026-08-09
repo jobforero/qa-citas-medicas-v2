@@ -10,6 +10,7 @@ import org.acme.dto.CitaRequestDTO;
 import org.acme.model.Cita;
 import org.acme.repository.CitaRepository;
 import org.acme.service.FhirMapperService;
+import org.bson.types.ObjectId;
 import org.jboss.logging.Logger;
 
 @Path("/api/citas")
@@ -29,6 +30,15 @@ public class CitaResource {
     public List<Cita> listarTodas() {
         LOG.info("Consultando catálogo completo de citas en MongoDB");
         return citaRepository.listAll();
+    }
+
+    // CASO DE USO 1: Consultar historial por cédula
+    @GET
+    @Path("/paciente/{cedula}")
+    public Response obtenerCitasPorPaciente(@PathParam("cedula") String cedula) {
+        LOG.infof("Consultando historial de citas para paciente cédula: %s", cedula);
+        List<Cita> citas = citaRepository.buscarPorPacienteCedula(cedula);
+        return Response.ok(citas).build();
     }
 
     @POST
@@ -54,10 +64,39 @@ public class CitaResource {
         // Mapeo normalizado HL7 FHIR
         cita.recursoFHIR = fhirMapperService.construirAppointmentFHIR(cita);
 
-        // Persistencia mediante Repositorio
         citaRepository.persist(cita);
 
         LOG.infof("Cita registrada y mapeada a HL7 FHIR con éxito para: %s", dto.nombrePaciente);
         return Response.status(Response.Status.CREATED).entity(cita).build();
+    }
+
+    // CASO DE USO 2: Cancelación de cita
+    @PUT
+    @Path("/{id}/cancelar")
+    public Response cancelarCita(@PathParam("id") String id) {
+        LOG.infof("Solicitud de cancelación para la cita con ID: %s", id);
+
+        try {
+            Cita cita = citaRepository.findById(new ObjectId(id));
+            if (cita == null) {
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity(Map.of("error", "Cita no encontrada")).build();
+            }
+
+            // Actualizar recurso FHIR mediante casting explícito a Map
+            if (cita.recursoFHIR instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> fhirMap = (Map<String, Object>) cita.recursoFHIR;
+                fhirMap.put("status", "cancelled");
+            }
+
+            citaRepository.update(cita);
+
+            LOG.infof("Cita ID %s cancelada correctamente", id);
+            return Response.ok(Map.of("mensaje", "Cita cancelada con éxito", "citaId", id)).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "Formato de ID inválido")).build();
+        }
     }
 }
