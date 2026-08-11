@@ -10,6 +10,7 @@ import org.acme.dto.CitaRequestDTO;
 import org.acme.model.Cita;
 import org.acme.repository.CitaRepository;
 import org.acme.service.FhirMapperService;
+import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.jboss.logging.Logger;
 
@@ -61,8 +62,9 @@ public class CitaResource {
         cita.modalidad = dto.modalidad;
         cita.fecha = dto.fecha;
 
-        // Mapeo normalizado HL7 FHIR
-        cita.recursoFHIR = fhirMapperService.construirAppointmentFHIR(cita);
+        // Mapeo normalizado HL7 FHIR convertido a Document BSON para MongoDB
+        Map<String, Object> fhirMap = fhirMapperService.construirAppointmentFHIR(cita);
+        cita.recursoFHIR = fhirMap != null ? new Document(fhirMap) : null;
 
         citaRepository.persist(cita);
 
@@ -83,11 +85,9 @@ public class CitaResource {
                         .entity(Map.of("error", "Cita no encontrada")).build();
             }
 
-            // Actualizar recurso FHIR mediante casting explícito a Map
-            if (cita.recursoFHIR instanceof Map) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> fhirMap = (Map<String, Object>) cita.recursoFHIR;
-                fhirMap.put("status", "cancelled");
+            // Actualizar directamente la propiedad 'status' en el Document BSON
+            if (cita.recursoFHIR != null) {
+                cita.recursoFHIR.put("status", "cancelled");
             }
 
             citaRepository.update(cita);

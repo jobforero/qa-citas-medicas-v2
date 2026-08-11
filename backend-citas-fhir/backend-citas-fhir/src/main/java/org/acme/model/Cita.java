@@ -1,11 +1,13 @@
 package org.acme.model;
 
-import io.quarkus.mongodb.panache.PanacheMongoEntity;
 import io.quarkus.mongodb.panache.common.MongoEntity;
+import org.bson.types.ObjectId;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @MongoEntity(collection = "citas")
-public class Cita extends PanacheMongoEntity {
+public class Cita {
+    public ObjectId id;
     public String pacienteCedula;
     public String nombrePaciente;
     public String tipoSeguro;
@@ -14,5 +16,5 @@ public class Cita extends PanacheMongoEntity {
     public String tipoCita;
     public String modalidad;
     public LocalDateTime fecha;
-    public Object recursoFHIR; // Guarda la estructura mapeada a HL7 FHIR
+    public Map<String, Object> recursoFHIR; // Mantener Map<String, Object>
 }
