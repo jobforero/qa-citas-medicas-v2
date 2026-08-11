@@ -6,6 +6,7 @@ import io.restassured.http.ContentType;
 import org.acme.model.Cita;
 import org.acme.repository.CitaRepository;
 import org.acme.service.FhirMapperService;
+import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -92,7 +93,7 @@ public class CitaResourceTest {
 
         Map<String, Object> fhirMap = new HashMap<>();
         fhirMap.put("status", "booked");
-        cita.recursoFHIR = fhirMap;
+        cita.recursoFHIR = new Document(fhirMap);
 
         Mockito.when(citaRepository.findById(mockId)).thenReturn(cita);
         Mockito.doNothing().when(citaRepository).update(any(Cita.class));
