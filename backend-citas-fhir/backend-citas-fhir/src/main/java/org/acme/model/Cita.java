@@ -16,5 +16,5 @@ public class Cita {
     public String tipoCita;
     public String modalidad;
     public LocalDateTime fecha;
-    public Document recursoFHIR; // Usar org.bson.Document directamente
+    public Document recursoFHIR; // org.bson.Document
 }
