@@ -5,6 +5,7 @@ import org.acme.dto.CitaRequestDTO;
 import org.acme.model.Cita;
 import org.acme.repository.CitaRepository;
 import org.acme.service.FhirMapperService;
+import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,10 +36,16 @@ public class CitaResourceDirectTest {
 
     // Prueba la consulta completa del catalogo de citas registradas
     @Test
+    @SuppressWarnings("unchecked")
     public void testListarTodasDirecto() {
         Mockito.when(citaRepository.listAll()).thenReturn(List.of(new Cita()));
-        List<Cita> resultado = citaResource.listarTodas();
-        assertNotNull(resultado);
+
+        Response response = citaResource.listarTodas();
+
+        assertEquals(200, response.getStatus());
+        assertNotNull(response.getEntity());
+
+        List<Cita> resultado = (List<Cita>) response.getEntity();
         assertEquals(1, resultado.size());
     }
 
@@ -87,13 +94,13 @@ public class CitaResourceDirectTest {
         cita.id = id;
         Map<String, Object> fhirMap = new HashMap<>();
         fhirMap.put("status", "proposed");
-        cita.recursoFHIR = fhirMap;
+        cita.recursoFHIR = new Document(fhirMap);
 
         Mockito.when(citaRepository.findById(id)).thenReturn(cita);
 
         Response response = citaResource.cancelarCita(id.toHexString());
         assertEquals(200, response.getStatus());
-        assertEquals("cancelled", fhirMap.get("status"));
+        assertEquals("cancelled", cita.recursoFHIR.get("status"));
     }
 
     // Prueba la respuesta HTTP 404 cuando se intenta cancelar un ID de cita que no existe en MongoDB

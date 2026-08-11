@@ -28,9 +28,11 @@ public class CitaResource {
     FhirMapperService fhirMapperService;
 
     @GET
-    public List<Cita> listarTodas() {
+    @Path("/todas")
+    public Response listarTodas() {
         LOG.info("Consultando catálogo completo de citas en MongoDB");
-        return citaRepository.listAll();
+        List<Cita> citas = citaRepository.listAll();
+        return Response.ok(citas).build();
     }
 
     // CASO DE USO 1: Consultar historial por cédula
