@@ -2,9 +2,9 @@
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /code
 
-# Copiar pom.xml y código fuente desde la subcarpeta backend-citas-fhir
-COPY backend-citas-fhir/pom.xml .
-COPY backend-citas-fhir/src ./src
+# Copiar pom.xml y código fuente desde la ruta doble anidada
+COPY backend-citas-fhir/backend-citas-fhir/pom.xml .
+COPY backend-citas-fhir/backend-citas-fhir/src ./src
 
 # Compilar omitiendo tests
 RUN mvn clean package -DskipTests
