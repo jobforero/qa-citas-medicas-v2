@@ -27,15 +27,15 @@ public class CitaResource {
     @Inject
     FhirMapperService fhirMapperService;
 
+    // Responde en GET /api/citas
     @GET
-    @Path("/todas")
     public Response listarTodas() {
         LOG.info("Consultando catálogo completo de citas en MongoDB");
         List<Cita> citas = citaRepository.listAll();
         return Response.ok(citas).build();
     }
 
-    // CASO DE USO 1: Consultar historial por cédula
+    // CASO DE USO 1: Consultar historial por cédula en GET /api/citas/paciente/{cedula}
     @GET
     @Path("/paciente/{cedula}")
     public Response obtenerCitasPorPaciente(@PathParam("cedula") String cedula) {
@@ -44,6 +44,7 @@ public class CitaResource {
         return Response.ok(citas).build();
     }
 
+    // Responde en POST /api/citas
     @POST
     public Response registrarCita(CitaRequestDTO dto) {
         LOG.infof("Registrando cita para paciente cédula: %s", dto.pacienteCedula);
@@ -74,7 +75,7 @@ public class CitaResource {
         return Response.status(Response.Status.CREATED).entity(cita).build();
     }
 
-    // CASO DE USO 2: Cancelación de cita
+    // CASO DE USO 2: Cancelación de cita en PUT /api/citas/{id}/cancelar
     @PUT
     @Path("/{id}/cancelar")
     public Response cancelarCita(@PathParam("id") String id) {
