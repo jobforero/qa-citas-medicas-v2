@@ -27,6 +27,16 @@ public class CitaResource {
     @Inject
     FhirMapperService fhirMapperService;
 
+    // Interceptor explícito de Preflight CORS para autorizar llamadas desde Vercel
+    @OPTIONS
+    public Response options() {
+        return Response.ok()
+                .header("Access-Control-Allow-Origin", "https://frontend-citas-fhir.vercel.app")
+                .header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+                .header("Access-Control-Allow-Headers", "*")
+                .build();
+    }
+
     // Responde en GET /api/citas
     @GET
     public Response listarTodas() {
