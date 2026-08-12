@@ -1,9 +1,8 @@
-package org.acme;
+package org.acme.service;
 
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.acme.model.Cita;
-import org.acme.service.FhirMapperService;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;

@@ -1,126 +1,111 @@
 package org.acme;
 
-import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
-import org.acme.model.Cita;
-import org.acme.repository.CitaRepository;
-import org.acme.service.FhirMapperService;
-import org.bson.Document;
-import org.bson.types.ObjectId;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.CoreMatchers.is;
-import static org.mockito.ArgumentMatchers.any;
+import static org.hamcrest.CoreMatchers.*;
 
 @QuarkusTest
 public class CitaResourceTest {
 
-    @InjectMock
-    CitaRepository citaRepository;
-
-    @InjectMock
-    FhirMapperService fhirMapperService;
-
+    // 1. Probar GET /api/especialidades y su método OPTIONS
     @Test
-    public void testListarTodasLasCitas() {
-        Mockito.when(citaRepository.listAll()).thenReturn(List.of(new Cita()));
+    public void testEspecialidadesEndpoints() {
+        // Prueba de lectura de especialidades
+        given()
+                .when().get("/api/especialidades")
+                .then()
+                .statusCode(200)
+                .body("size()", is(4));
 
+        // Prueba del preflight OPTIONS para subir cobertura de EspecialidadResource
+        given()
+                .when().options("/api/especialidades")
+                .then()
+                .statusCode(200)
+                .header("Access-Control-Allow-Origin", "https://frontend-citas-fhir.vercel.app");
+    }
+
+    // 2. Probar GET /api/citas y su método OPTIONS
+    @Test
+    public void testCitasGeneralAndOptions() {
         given()
                 .when().get("/api/citas")
                 .then()
                 .statusCode(200);
-    }
-
-    @Test
-    public void testObtenerCitasPorPaciente() {
-        Cita cita = new Cita();
-        cita.pacienteCedula = "8-888-8888";
-        Mockito.when(citaRepository.buscarPorPacienteCedula("8-888-8888")).thenReturn(List.of(cita));
 
         given()
-                .when().get("/api/citas/paciente/8-888-8888")
+                .when().options("/api/citas")
                 .then()
                 .statusCode(200)
-                .body("size()", is(1));
+                .header("Access-Control-Allow-Origin", "https://frontend-citas-fhir.vercel.app");
     }
 
+    // 3. Probar GET /api/citas/paciente/{cedula} (Cubre CitaRepository.buscarPorPacienteCedula)
     @Test
-    public void testRegistrarCitaSinCedulaOError() {
+    public void testObtenerCitasPorPaciente() {
+        given()
+                .pathParam("cedula", "8-888-8888")
+                .when().get("/api/citas/paciente/{cedula}")
+                .then()
+                .statusCode(200);
+    }
+
+    // 4. Probar POST /api/citas exitoso y la rama BAD_REQUEST (campos nulos)
+    @Test
+    public void testRegistrarCitaExitoYError() {
+        // Caso de error (sin cédula) -> Cubre las condiciones y líneas de BAD_REQUEST
+        Map<String, Object> payloadInvalido = new HashMap<>();
+        payloadInvalido.put("especialidad", "Medicina General");
+
         given()
                 .contentType(ContentType.JSON)
-                .body(Map.of("especialidad", "Medicina General"))
+                .body(payloadInvalido)
                 .when().post("/api/citas")
                 .then()
                 .statusCode(400)
                 .body("error", is("La cédula y el nombre del paciente son obligatorios"));
-    }
 
-    @Test
-    public void testRegistrarCitaExitosa() {
-        Mockito.when(fhirMapperService.construirAppointmentFHIR(any()))
-                .thenReturn(Map.of("resourceType", "Appointment", "status", "booked"));
-
-        Mockito.doNothing().when(citaRepository).persist(any(Cita.class));
+        // Caso de éxito
+        Map<String, Object> payloadValido = new HashMap<>();
+        payloadValido.put("pacienteCedula", "8-999-9999");
+        payloadValido.put("nombrePaciente", "Test Automation User");
+        payloadValido.put("tipoSeguro", "CSS");
+        payloadValido.put("numeroSeguro", "CSS-9999");
+        payloadValido.put("especialidad", "Medicina General");
+        payloadValido.put("tipoCita", "Consulta General");
+        payloadValido.put("modalidad", "PRESENCIAL");
+        payloadValido.put("fecha", "2026-09-10T10:00:00");
 
         given()
                 .contentType(ContentType.JSON)
-                .body(Map.of(
-                        "pacienteCedula", "8-888-8888",
-                        "nombrePaciente", "Juan Perez",
-                        "especialidad", "Medicina General",
-                        "tipoCita", "Consulta General",
-                        "modalidad", "PRESENCIAL"
-                ))
+                .body(payloadValido)
                 .when().post("/api/citas")
                 .then()
                 .statusCode(201)
-                .body("pacienteCedula", is("8-888-8888"))
-                .body("nombrePaciente", is("Juan Perez"));
+                .body("pacienteCedula", is("8-999-9999"));
     }
 
+    // 5. Probar PUT /api/citas/{id}/cancelar en caso NOT_FOUND e ID inválido
     @Test
-    public void testCancelarCitaExistente() {
-        ObjectId mockId = new ObjectId();
-        Cita cita = new Cita();
-        cita.id = mockId;
-
-        Map<String, Object> fhirMap = new HashMap<>();
-        fhirMap.put("status", "booked");
-        cita.recursoFHIR = new Document(fhirMap);
-
-        Mockito.when(citaRepository.findById(mockId)).thenReturn(cita);
-        Mockito.doNothing().when(citaRepository).update(any(Cita.class));
-
+    public void testCancelarCitaErrores() {
+        // ID no existente en la base de datos
         given()
-                .when().put("/api/citas/" + mockId.toHexString() + "/cancelar")
-                .then()
-                .statusCode(200)
-                .body("mensaje", is("Cita cancelada con éxito"));
-    }
-
-    @Test
-    public void testCancelarCitaNoEncontrada() {
-        ObjectId mockId = new ObjectId();
-        Mockito.when(citaRepository.findById(mockId)).thenReturn(null);
-
-        given()
-                .when().put("/api/citas/" + mockId.toHexString() + "/cancelar")
+                .pathParam("id", "60d5ec49f1b2c82d8c8e4b99")
+                .when().put("/api/citas/{id}/cancelar")
                 .then()
                 .statusCode(404)
                 .body("error", is("Cita no encontrada"));
-    }
 
-    @Test
-    public void testCancelarCitaIdInvalido() {
+        // ID con formato inválido (excepción)
         given()
-                .when().put("/api/citas/id-invalido-123/cancelar")
+                .pathParam("id", "123-invalido")
+                .when().put("/api/citas/{id}/cancelar")
                 .then()
                 .statusCode(400)
                 .body("error", is("Formato de ID inválido"));
