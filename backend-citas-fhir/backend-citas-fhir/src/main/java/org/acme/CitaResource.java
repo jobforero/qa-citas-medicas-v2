@@ -27,8 +27,9 @@ public class CitaResource {
     @Inject
     FhirMapperService fhirMapperService;
 
-    // Interceptor explícito de Preflight CORS para autorizar llamadas desde Vercel
+    // Manejo global de preflight CORS
     @OPTIONS
+    @Path("{path: .*}")
     public Response options() {
         return Response.ok()
                 .header("Access-Control-Allow-Origin", "https://frontend-citas-fhir.vercel.app")
@@ -37,31 +38,32 @@ public class CitaResource {
                 .build();
     }
 
-    // Responde en GET /api/citas
     @GET
     public Response listarTodas() {
         LOG.info("Consultando catálogo completo de citas en MongoDB");
         List<Cita> citas = citaRepository.listAll();
-        return Response.ok(citas).build();
+        return Response.ok(citas)
+                .header("Access-Control-Allow-Origin", "https://frontend-citas-fhir.vercel.app")
+                .build();
     }
 
-    // CASO DE USO 1: Consultar historial por cédula en GET /api/citas/paciente/{cedula}
     @GET
     @Path("/paciente/{cedula}")
     public Response obtenerCitasPorPaciente(@PathParam("cedula") String cedula) {
         LOG.infof("Consultando historial de citas para paciente cédula: %s", cedula);
         List<Cita> citas = citaRepository.buscarPorPacienteCedula(cedula);
-        return Response.ok(citas).build();
+        return Response.ok(citas)
+                .header("Access-Control-Allow-Origin", "https://frontend-citas-fhir.vercel.app")
+                .build();
     }
 
-    // Responde en POST /api/citas
     @POST
     public Response registrarCita(CitaRequestDTO dto) {
         LOG.infof("Registrando cita para paciente cédula: %s", dto.pacienteCedula);
 
         if (dto.pacienteCedula == null || dto.nombrePaciente == null) {
-            LOG.warn("Incapaz de registrar cita: Cédula o nombre faltantes");
             return Response.status(Response.Status.BAD_REQUEST)
+                    .header("Access-Control-Allow-Origin", "https://frontend-citas-fhir.vercel.app")
                     .entity(Map.of("error", "La cédula y el nombre del paciente son obligatorios")).build();
         }
 
@@ -75,40 +77,39 @@ public class CitaResource {
         cita.modalidad = dto.modalidad;
         cita.fecha = dto.fecha;
 
-        // Mapeo normalizado HL7 FHIR convertido a Document BSON para MongoDB
         Map<String, Object> fhirMap = fhirMapperService.construirAppointmentFHIR(cita);
         cita.recursoFHIR = fhirMap != null ? new Document(fhirMap) : null;
 
         citaRepository.persist(cita);
 
-        LOG.infof("Cita registrada y mapeada a HL7 FHIR con éxito para: %s", dto.nombrePaciente);
-        return Response.status(Response.Status.CREATED).entity(cita).build();
+        return Response.status(Response.Status.CREATED)
+                .header("Access-Control-Allow-Origin", "https://frontend-citas-fhir.vercel.app")
+                .entity(cita).build();
     }
 
-    // CASO DE USO 2: Cancelación de cita en PUT /api/citas/{id}/cancelar
     @PUT
     @Path("/{id}/cancelar")
     public Response cancelarCita(@PathParam("id") String id) {
-        LOG.infof("Solicitud de cancelación para la cita con ID: %s", id);
-
         try {
             Cita cita = citaRepository.findById(new ObjectId(id));
             if (cita == null) {
                 return Response.status(Response.Status.NOT_FOUND)
+                        .header("Access-Control-Allow-Origin", "https://frontend-citas-fhir.vercel.app")
                         .entity(Map.of("error", "Cita no encontrada")).build();
             }
 
-            // Actualizar directamente la propiedad 'status' en el Document BSON
             if (cita.recursoFHIR != null) {
                 cita.recursoFHIR.put("status", "cancelled");
             }
 
             citaRepository.update(cita);
 
-            LOG.infof("Cita ID %s cancelada correctamente", id);
-            return Response.ok(Map.of("mensaje", "Cita cancelada con éxito", "citaId", id)).build();
+            return Response.ok(Map.of("mensaje", "Cita cancelada con éxito", "citaId", id))
+                    .header("Access-Control-Allow-Origin", "https://frontend-citas-fhir.vercel.app")
+                    .build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
+                    .header("Access-Control-Allow-Origin", "https://frontend-citas-fhir.vercel.app")
                     .entity(Map.of("error", "Formato de ID inválido")).build();
         }
     }
